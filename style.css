@@ -1,0 +1,105 @@
+:root {
+	--tableborderradius: 5px;
+}
+
+#graphicGroup {
+	white-space: nowrap;
+}
+
+#legendGroup {
+	overflow-x: auto;
+	float: left;
+	position: relative;
+	top: 125px;
+}
+
+#graphsGroup {
+	overflow-x: auto;
+	position: relative;
+	right: 10px;
+}
+
+#graphsGroup > svg {
+	display: inline-block;
+}
+
+h1 {
+	background-color: #e6e6e6;
+}
+
+#ui {
+	position: absolute;
+	left: 2%;
+	border: 1px solid black;
+	border-radius: 5px;
+	background-color: #e6e6e6;
+}
+
+input {
+	position: relative;
+}
+
+button {
+	position: relative;
+}
+
+select {
+	position: relative;
+}
+
+#tableGroup {
+	top: 0;
+	white-space: nowrap;
+	overflow-x: auto;
+}
+
+#tableGroup > g {
+	display: inline-block;
+	overflow-x: auto;
+	vertical-align: top;
+}
+
+table {
+	border-collapse: separate;
+	border-radius: var(--tableborderradius);
+	border-spacing: 0;
+	overflow: hidden;
+}
+
+table tr:first-child td:first-child {
+	border-top-left-radius: var(--tableborderradius);
+}
+
+table tr:first-child td:last-child {
+	border-top-right-radius: var(--tableborderradius);
+}
+
+table tr:last-child td:first-child {
+	border-bottom-left-radius: var(--tableborderradius);
+}
+
+table tr:last-child td:last-child {
+	border-bottom-right-radius: var(--tableborderradius);
+}
+
+td {
+	vertical-align: top;
+	padding: 5px;
+	border: 1px solid black;
+}
+
+#mutationTable tr:nth-child(odd) td:nth-child(n+3) {
+	background-color: #f2f2f2;
+}
+
+#mutationTable tr:nth-child(1) {
+	background-color: #f2f2f2;
+}
+
+#frequencyTable tr:nth-child(odd) {
+	background-color: #f2f2f2;
+}
+
+#canvas {
+	visibility: hidden;
+}
