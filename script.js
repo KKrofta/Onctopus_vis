@@ -25,6 +25,9 @@ var 	//file parameters
 	legMargin = {top: 30, right: 0, bottom: 30, left: 30},
 	legTxtSpacer = 10,
 
+	//defines how much the name of the tree is shifted to the bottom
+	treeNameBottomShift = 40,
+
 	//Parameters of the svg working area of the tree
 	width = 500,
 	height = 500,
@@ -96,7 +99,7 @@ function readRelationFiles() {
 		var file = files[i];
 		var resultFile = null;
 		//check if the file has correct ending to be a relationship file
-		if(file.name.length > relationshipFileEnding.length && file.name.slice(-2) == relationshipFileEnding) {
+		if(file.name.length > relationshipFileEnding.length && file.name.slice(-relationshipFileEnding.length) == relationshipFileEnding) {
 			//iterate over every file to find result file
 			for(j = 0; j < files.length; j++) {
 				var resFile = files[j]
@@ -109,7 +112,7 @@ function readRelationFiles() {
 
 			var treeId = "" + treeCounter;
 			//add a new tree to the tree data
-			trees[treeId] = {"relations": [], "originalRelations": [], "selectedEdges": [], "resultArray": [], "segmentAmount": 0, "tree": null, "root": null, "oldPos": []};
+			trees[treeId] = {"relations": [], "originalRelations": [], "selectedEdges": [], "resultArray": [], "segmentAmount": 0, "tree": null, "root": null, "oldPos": [], "filename": file.name.slice(0, -relationshipFileEnding.length)};
 			treeCounter++;
 
 			var reader = new FileReader();
@@ -693,10 +696,18 @@ function drawTree(treeData, treeId, segSelect) {
 			.append("svg")
 			.attr("id", "treeSVG" + treeId)
 			.attr("width", width + margin.right + margin.left)
-			.attr("height", height + margin.top + margin.bottom)
+			.attr("height", height + margin.top + margin.bottom + treeNameBottomShift)
 			.append("g")
 			.attr("id", "treeG" + treeId)
 			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+		var name = d3.select("#tree" + treeId)
+			.append("span")
+			.style("position", "absolute")
+			.style("bottom", margin.bottom + "px")
+			.html(trees[treeId].filename);
+		var nWidth = name._groups[0][0].getBoundingClientRect().width;
+		name.style("left", margin.left + width/2 - nWidth/2 + "px");
 	//clearing the group of the tree if there is a svg working area for the tree already
 	} //else svg.selectAll("*").remove();
 
