@@ -1,3 +1,5 @@
+//import saveAs from "./FileSaver.js-1.3.8/src/file-saver";
+
 var 	//file parameters
 	relationshipFileEnding = ".Z",
 	resultFileEnding = ".json",
@@ -71,6 +73,10 @@ var treeCounter = 0
 var trees = {};
 //maximal amount of segments in the current trees
 var segmentAmount = 0;
+
+this.world = function world() {
+	console.log("world!");
+}
 
 //generates the visualisation of the data
 function draw() {
@@ -258,6 +264,7 @@ function getPDF(treeId) {
 		blob = stream.toBlob("application/pdf");
 		url = stream.toBlobURL("application/pdf");
 		window.open(url);
+		//saveAs(blob, "test.pdf");
 	});
 	//TODO request download
 }
@@ -456,15 +463,15 @@ function drawLegend() {
 			.attr("font-size", legFontSize)
 			.attr("transform", "translate(" + legMargin.left + "," + legMargin.top + ")");
 
-		genLegEdgeElem(legend, "black", directEdgeDash, p1, p2, "parent-child relationship\n(constant)", txtX, cur, stepsize);
+		genLegEdgeElem(legend, "black", directEdgeDash, p1, p2, "parent-child relationship", txtX, cur, stepsize);
 
-		genLegEdgeElem(legend, "black", certainEdgeDash, p1, p2, "parent-child relationship\n(ambiguous relationships can lead to other parents)", txtX, cur, stepsize);
+		genLegEdgeElem(legend, "black", certainEdgeDash, p1, p2, "ancestor-descendant relationship,\ncurrently parent-child relationship", txtX, cur, stepsize);
 
 		genLegEdgeElem(legend, "black", ambiguousEdgeDash, p1, p2, "ambiguous relationship", txtX, cur, stepsize);
 
-		genLegEdgeElem(legend, "blue", directEdgeDash, p1, p2, "activated parent-child relationship\n(ambiguous relationships cannot lead to other parents)", txtX, cur, stepsize);
+		genLegEdgeElem(legend, "blue", directEdgeDash, p1, p2, "activated parent-child relationship", txtX, cur, stepsize);
 
-		genLegEdgeElem(legend, "blue", certainEdgeDash, p1, p2, "activated parent-child relationship\n(ambiguous relationships can lead to other parents)", txtX, cur, stepsize);
+		genLegEdgeElem(legend, "blue", certainEdgeDash, p1, p2, " activated ancestor-descendant relationship,\ncurrently parent-child relationship", txtX, cur, stepsize);
 
 		var grp = legend.append("g")._groups[0][0];
 		grp.__data__  = {"id": 0, "x": 0, "y": 1, "parent": {"x": 0, "y": -1}};
