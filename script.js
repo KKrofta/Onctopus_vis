@@ -131,10 +131,14 @@ function readRelationFiles() {
 			reader.onload = (function(treeId, resultFile) {
 				return function() {
 					//store the relationship data
-					trees[treeId].relations = JSON.parse(this.result);
-					trees[treeId].originalRelations = JSON.parse(this.result);
+					try {
+						trees[treeId].relations = JSON.parse(this.result);
+						trees[treeId].originalRelations = JSON.parse(this.result);
 					//reading in the result file, also starts the generation of the tree visualisation
 					readResultFile(treeId, resultFile);
+					} catch(SyntaxError) {
+						alert(trees[treeId].filename + "" +  relationshipFileEnding + " is not a json-file!");
+					}
 				};
 			})(treeId, resultFile);
 
@@ -156,26 +160,30 @@ function readResultFile(treeId, file) {
 		//add a function to the reader that triggers when a file is read
 		reader.onload = function() {
 			var tree = trees[treeId];
-			tree.resultArray = JSON.parse(this.result);
+			try {
+				tree.resultArray = JSON.parse(this.result);
 
-			//going through every mutation to find the segment with the highest id
-			tree.resultArray.forEach(function(link) {
-				tree["segmentAmount"] = checkSegments(link.ssms, tree["segmentAmount"]);
-				tree["segmentAmount"] = checkSegments(link.ssms_a, tree["segmentAmount"]);
-				tree["segmentAmount"] = checkSegments(link.ssms_b, tree["segmentAmount"]);
-				tree["segmentAmount"] = checkSegments(link.cnvs_a, tree["segmentAmount"]);
-				tree["segmentAmount"] = checkSegments(link.cnvs_b, tree["segmentAmount"]);
-			});
-			if(segmentAmount < tree["segmentAmount"]) {
-				//adding an option to the segment selection for each segment
-				var select = document.getElementById("segmentSelect");
-				for(var i = segmentAmount + 1; i <= tree["segmentAmount"]; i++) {
-					var option = document.createElement("option");
-					option.setAttribute("value", i - 1);
-					option.innerHTML = "segment " + (i - 1);
-					select.append(option);
+				//going through every mutation to find the segment with the highest id
+				tree.resultArray.forEach(function(link) {
+					tree["segmentAmount"] = checkSegments(link.ssms, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.ssms_a, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.ssms_b, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.cnvs_a, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.cnvs_b, tree["segmentAmount"]);
+				});
+				if(segmentAmount < tree["segmentAmount"]) {
+					//adding an option to the segment selection for each segment
+					var select = document.getElementById("segmentSelect");
+					for(var i = segmentAmount + 1; i <= tree["segmentAmount"]; i++) {
+						var option = document.createElement("option");
+						option.setAttribute("value", i - 1);
+						option.innerHTML = "segment " + (i - 1);
+						select.append(option);
+					}
+					segmentAmount = tree["segmentAmount"];
 				}
-				segmentAmount = tree["segmentAmount"];
+			} catch (SyntaxError) {
+				alert(trees[treeId].filename + "" +  resultFileEnding + " is not a json-file! Tree was generated without mutations.");
 			}
 			
 			//generates the elements for the visualisation
