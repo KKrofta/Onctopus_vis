@@ -78,6 +78,10 @@ this.world = function world() {
 	console.log("world!");
 }
 
+function test() {
+
+}
+
 //generates the visualisation of the data
 function draw() {
 	drawLegend(); //TODO: Only do that at the start of the page
@@ -92,7 +96,7 @@ function draw() {
 
 //checks every file in the input element 'data'. If the file has the correct ending, defined in 'relationshipFileEnding', a new tree is generated using the data in that file. If a file is found with same name but the ending defined in 'resultFileEnding' the data it contained is read in as mutation information and mutation graphics can be generated. //TODO catch invalid files with correct ending
 function readRelationFiles() {
-	//check if the browser support neccessary packages
+	//check if the browser supports neccessary packages
 	if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
 		alert("The File APIs are not fully supported in this browser.");
 	}
