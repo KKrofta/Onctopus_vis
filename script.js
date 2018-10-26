@@ -1,5 +1,3 @@
-//import saveAs from "./FileSaver.js-1.3.8/src/file-saver";
-
 var 	//file parameters
 	relationshipFileEnding = ".Z",
 	resultFileEnding = ".json",
@@ -84,7 +82,7 @@ function test() {
 
 //generates the visualisation of the data
 function draw() {
-	drawLegend(); //TODO: Only do that at the start of the page
+	drawLegend();
 
 	if(document.getElementById("data").files.length==0) {
 		alert("No File selected!");
@@ -94,367 +92,7 @@ function draw() {
 	return;
 }
 
-//checks every file in the input element 'data'. If the file has the correct ending, defined in 'relationshipFileEnding', a new tree is generated using the data in that file. If a file is found with same name but the ending defined in 'resultFileEnding' the data it contained is read in as mutation information and mutation graphics can be generated. //TODO catch invalid files with correct ending
-function readRelationFiles() {
-	//check if the browser supports neccessary packages
-	if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
-		alert("The File APIs are not fully supported in this browser.");
-	}
-
-	//get the files from the input element
-	var files = document.getElementById("data").files;
-
-	//iterate over every file
-	for(i = 0; i < files.length; i++) {
-		var file = files[i];
-		var resultFile = null;
-		//check if the file has correct ending to be a relationship file
-		if(file.name.length > relationshipFileEnding.length && file.name.slice(-relationshipFileEnding.length) == relationshipFileEnding) {
-			//iterate over every file to find result file
-			for(j = 0; j < files.length; j++) {
-				var resFile = files[j]
-				//check if the filename of the file equals the filename of the relationship file and has the correct ending
-				if(resFile.name.length == file.name.length + resultFileEnding.length - relationshipFileEnding.length && file.name.slice(0, -relationshipFileEnding.length) == resFile.name.slice(0, -resultFileEnding.length)) {
-					resultFile = resFile;
-					break;
-				}
-			}
-
-			var treeId = "" + treeCounter;
-			//add a new tree to the tree data
-			trees[treeId] = {"relations": [], "originalRelations": [], "selectedEdges": [], "resultArray": [], "segmentAmount": 0, "tree": null, "root": null, "oldPos": [], "filename": file.name.slice(0, -relationshipFileEnding.length)};
-			treeCounter++;
-
-			var reader = new FileReader();
-
-			//add a function to the reader that triggers when a file is read
-			reader.onload = (function(treeId, resultFile) {
-				return function() {
-					//store the relationship data
-					try {
-						trees[treeId].relations = JSON.parse(this.result);
-						trees[treeId].originalRelations = JSON.parse(this.result);
-					//reading in the result file, also starts the generation of the tree visualisation
-					readResultFile(treeId, resultFile);
-					} catch(SyntaxError) {
-						alert(trees[treeId].filename + "" +  relationshipFileEnding + " is not a json-file!");
-					}
-				};
-			})(treeId, resultFile);
-
-			reader.readAsText(file);
-		}
-	};
-}
-
-//reades the given 'file' that should contain the mutations and frequencies of tree with given 'treeId'. Also starts the generation of the visualisation.
-function readResultFile(treeId, file) {
-	//check if the browser support neccessary packages
-	if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
-		alert("The File APIs are not fully supported in this browser.");
-	}
-
-	if (file != null) {
-		var reader = new FileReader();
-
-		//add a function to the reader that triggers when a file is read
-		reader.onload = function() {
-			var tree = trees[treeId];
-			try {
-				tree.resultArray = JSON.parse(this.result);
-
-				//going through every mutation to find the segment with the highest id
-				tree.resultArray.forEach(function(link) {
-					tree["segmentAmount"] = checkSegments(link.ssms, tree["segmentAmount"]);
-					tree["segmentAmount"] = checkSegments(link.ssms_a, tree["segmentAmount"]);
-					tree["segmentAmount"] = checkSegments(link.ssms_b, tree["segmentAmount"]);
-					tree["segmentAmount"] = checkSegments(link.cnvs_a, tree["segmentAmount"]);
-					tree["segmentAmount"] = checkSegments(link.cnvs_b, tree["segmentAmount"]);
-				});
-				if(segmentAmount < tree["segmentAmount"]) {
-					//adding an option to the segment selection for each segment
-					var select = document.getElementById("segmentSelect");
-					for(var i = segmentAmount + 1; i <= tree["segmentAmount"]; i++) {
-						var option = document.createElement("option");
-						option.setAttribute("value", i - 1);
-						option.innerHTML = "segment " + (i - 1);
-						select.append(option);
-					}
-					segmentAmount = tree["segmentAmount"];
-				}
-			} catch (SyntaxError) {
-				alert(trees[treeId].filename + "" +  resultFileEnding + " is not a json-file! Tree was generated without mutations.");
-			}
-			
-			//generates the elements for the visualisation
-			afterRead(treeId, false);
-		}
-
-		reader.readAsText(file);
-	} else { //no result file selected
-		afterRead(treeId, false);
-	}
-}
-
-//checks mutArray for the highest id and updated segmentAmount if the segment has a higher id than segmentAmount
-function checkSegments(mutArray, segmentAmount) {
-	mutArray.forEach(function(mut) {
-		if(mut.seg_index > segmentAmount - 1) {
-			segmentAmount = mut.seg_index + 1;
-		}
-	});
-	return segmentAmount;
-}
-
-//generates the visualisation after the relations array has been read from a file. Set segSelect to true if the only thing changed is the selected segment
-function afterRead(treeId, segSelect) {
-	var treeData = arrayToJSON(trees[treeId].relations, trees[treeId].originalRelations);
-	svg = d3.select("#treeG" + treeId);
-	drawTree(treeData, treeId, segSelect);
-	if (trees[treeId].resultArray != null) {
-		drawMutationTable(trees[treeId].resultArray);
-		drawFreqTable(trees[treeId].resultArray);
-	}
-}
-
-//redraws all the trees with the currently selected segment.
-function changeSegment() {
-	for (var treeId in trees) {
-		afterRead(treeId, true);
-	}
-}
-
-//generates pdf for all the trees
-function getPDFs() {
-	for (tId in trees) {
-		getPDF(tId);
-	}
-}
-
-//generates the pdf of the tree with given id out of the svg graphic in it's current state
-function getPDF(treeId) {
-	//pdf set up
-	var doc = new PDFDocument({
-		size: [width + margin.left + margin.right, height + margin.top + margin.bottom],
-		margins: {
-			top: margin.top,
-			bottom: margin.bottom,
-			left: margin.left,
-			right: margin.right
-		}
-	});
-	var stream = doc.pipe(blobStream());
-	
-	var g = document.getElementById("treeG" + treeId);
-	doc.translate(margin.right, margin.top);
-	doc.scale(pdfTreeScale);
-	doc.fontSize(pdfFontSize);
-
-	//add elements
-	var labels = [];
-	for (i=0; i<g.children.length; i++) {
-		var g2 = g.children[i];
-		for (j=0; j<g2.children.length; j++) {
-			var elem = g2.children[j];
-			addToPDF(doc, elem);
-			if(elem.nodeName == "g") {
-				var tf = elem.getAttribute("transform");
-				if (tf != null && tf.length >= 9 && tf.substring(0, 9) == "translate") {
-					tf = tf.substring(0, tf.length - 1);
-					tf = tf.split("(");
-					tf = tf[1].split(",");
-				}
-				for (k=0; k<elem.children.length; k++) {
-					addToPDF(doc, elem.children[k], tf);
-				}
-			}
-		}
-	}
-	
-	doc.end();
-	stream.on("finish", () => {
-		blob = stream.toBlob("application/pdf");
-		url = stream.toBlobURL("application/pdf");
-		window.open(url);
-		//saveAs(blob, "test.pdf");
-	});
-	//TODO request download
-}
-
-//Creates an element and adds it to doc. The element is based one elem with transformation tf in mind. This function is designed to work specifically with the graph svg and won't work for most other svgs depending on the elements used.
-function addToPDF(doc, elem, tf) {
-	//is this elem part of a mutation graphic
-	var mutGraph = true;
-	if (tf == null) {
-		tf = ["0", "0"];
-		mutGraph = false;
-	}
-	if(elem.nodeName == "path" && elem.getAttribute("stroke") != "white") {
-		var dsh = elem.getAttribute("stroke-dasharray");
-		//converting the color into an array of rgb values
-		var color = elem.getAttribute("stroke");
-		color = color.slice(4, -1);
-		color = color.split(", ");
-		if(dsh != null) {
-			dsh = dsh.split(", ");
-			doc.path(elem.getAttribute("d"))
-				.dash(parseInt(dsh[0]), {space: parseInt(dsh[1])})
-				.lineWidth(edgeWidth)
-				.stroke(color)
-				.undash();
-		} else {
-			doc.path(elem.getAttribute("d"))
-				.lineWidth(edgeWidth)
-				.stroke(color);
-		}
-	} else if(elem.nodeName == "circle") {
-		//parentElement coordinates have to be used because they store the actuall positions used by d3
-		doc.circle(elem.parentElement.__data__.x, elem.parentElement.__data__.y, parseInt(elem.getAttribute("r")))
-			.lineWidth(circleStrokeWidth)
-			.fillAndStroke("white", "black");
-		doc.stroke();
-	} else if(elem.nodeName == "text") {
-		var fill = elem.getAttribute("fill");
-		if (fill == null) {
-			fill = "black";
-		} else if (fill.length >= 3 && fill[0] == "r" && fill[1] == "g" && fill[2] == "b") {
-			fill = fill.substring(0, fill.length - 1);
-			fill = fill.split("(");
-			fill = fill[1].split(",");
-		}
-
-		var fontSize = pdfFontSize;
-		//dx, dy are used by the text elements on the nodes and edges except the mutation graphics
-		var x = parseInt(elem.getAttribute("dx"));
-		var y = parseInt(elem.getAttribute("dy"));
-		if (isNaN(x)) {
-			//For the mutation graphics normal x and y are used
-			x = parseInt(elem.getAttribute("x"));
-			y = parseInt(elem.getAttribute("y"));
-		}
-		if(elem.getAttribute("class") != "label" && !mutGraph) {
-			//space the node text elements to the right
-			x = x - pdfFontSize * 3 / 8 + pdfFontXOffset;
-			y = y - pdfFontSize * 3 / 8;
-
-			//adjust to the position of the containing group
-			x += elem.parentElement.__data__.x;
-			y += elem.parentElement.__data__.y;
-		} else if (mutGraph) {
-			//mutation graphic position needs to be adjusted depending on graphic size and transformation by the containing group
-			y = y - cnvRectHeigth * 1/2; //TODO not working for scaling text sizes (mutTextHeigth)
-			fontSize = elem.getAttribute("font-size");
-			x += parseInt(tf[0]);
-			y += parseInt(tf[1]);
-		}
-		doc.fontSize(fontSize)
-			.fillColor(fill)
-			.text(elem.innerHTML, x, y);
-	} else if(elem.nodeName == "rect") {
-		var fill = elem.style.fill;
-		if (fill.length >= 3 && fill[0] == "r" && fill[1] == "g" && fill[2] == "b") {
-			fill = fill.substring(0, fill.length - 1);
-			fill = fill.split("(");
-			fill = fill[1].split(", ");
-		}
-		doc.rect(elem.getAttribute("x") + parseInt(tf[0]), elem.getAttribute("y") + parseInt(tf[1]), elem.getAttribute("width"), elem.getAttribute("height"))
-			.fillAndStroke(fill, fill);
-		doc.stroke();
-	}
-}
-
-//Generating a kinship tree in JSON-format from the input array
-function arrayToJSON(array, sourceArray){
-
-	//checking if array is valid
-	for(pre=0;pre<array.length;pre++){
-		for(desc=0;desc<=pre;desc++){
-			if(array[pre][desc]!=-1){
-				alert("Invalid array: " + pre + ", " + desc + " is not '-1'");
-				return [[],[]];
-			}
-		}
-	}
-
-	//contains the information for the main tree generation
-	var jsonTree = [];
-
-	//Adding every node
-	for(i=0; i<array.length; i++){
-		jsonTree.push({"id": i, "possibleChildren": new Array(array.length).fill(0), "uncertainParent": false});
-	}
-
-	//Setting up the relations by moving the nodes into the children array of their parent starting with the descendant with the highest index and checking for predecessors in a bottom up manner on the matrix. This means starting with the node that has the highest index and can be a parent.
-	for(desc=array.length-1;desc>0;desc--){
-		var preFound = false;
-		for(pre=desc-1;pre>=0;pre--){
-			if(array[pre][desc]==1){
-				if(!preFound){
-					//determine if the relation is really certain or if the relation has been selected by the user
-					if(sourceArray[pre][desc]==0) {
-						jsonTree[desc]["selected"] = true;
-					} else {
-						jsonTree[desc]["selected"] = false;
-					}
-
-					//adding children array if needed and not existing yet
-					if(typeof jsonTree[pre].children === 'undefined') {
-						jsonTree[pre]["children"] = [];
-					}
-					//moving the currently selected descendant into the children array of his predecessor
-					jsonTree[pre].children.unshift(jsonTree[desc]);
-					//removing the predecessor from the array
-					jsonTree = jsonTree.slice(0,desc).concat(jsonTree.slice(desc+1));
-				
-					preFound=true;
-				}
-			//TODO: description
-			} else if(array[pre][desc]==0) {
-				jsonTree[pre].possibleChildren[desc]=1;
-			//catching invalid values in the array
-			} else if(array[pre][desc]!=-1) {
-				alert("Invalid value at " + pre + ", " + desc + " in the array!");
-				return [[],[]];
-			}
-		}
-
-	}
-
-	//removes all possible children, that won't be drawn in the topological tree
-	determinePossibleChildren (jsonTree[0], array);
-
-	return jsonTree[0];
-}
-
-//removes all possible children from each node of the given tree which are inferable by the children and possible children of the other nodes
-function determinePossibleChildren (jsonTree, array) {
-	jsonTree.children.forEach(function (child) {
-		dPC(child, array);
-	});
-}
-
-//removes the possible children of the lineage that are inferable using the relationship array array and recursively doing the same with all of the children of the lineage
-function dPC (lineage, array) {
-	for(i=0; i<lineage.possibleChildren.length; i++) {
-		if(lineage.possibleChildren[i] == 1) {
-			//removes all possible children from the lineage which are certain children of the possible child
-			for(j=i; j<array[i].length; j++) {
-				if(array[i][j]==1){
-					lineage.possibleChildren[j] = 0;
-				}
-			}
-		}
-	}
-	//applying the function to every child
-	if (lineage.children != null) {
-		lineage.children.forEach(function (child) {
-			dPC(child, array);
-		});
-	}
-}
-
-//------------------------------------------TREE GENERATION------------------------------------------------
-//TODO
+//Fills the legendGroup with the text and and graphics. The mutation graphics use the same functions as in the actual tree. The graphs are generated with seperate functions.
 function drawLegend() {
 	var legend = d3.select("#legendG");
 
@@ -618,6 +256,7 @@ function drawLegend() {
 			.attr("dy", p1.y + 5)
 			.attr("font-size", legFontSize)
 			.style("fill", cnvRectColorA)
+
 			.text("allele A")
 			._groups[0][0].getBoundingClientRect().width + legSpace;
 		w += legend.append("text")
@@ -685,6 +324,223 @@ function genLegEdgeElem(legend, stroke, dash, p1, p2, text, txtX, cur, stepsize,
 	cur.c += 1;
 }
 
+//checks every file in the input element 'data'. If the file has the correct ending, defined in 'relationshipFileEnding', a new tree is generated using the data in that file. If a file is found with same name but the ending defined in 'resultFileEnding' the data it contained is read in as mutation information and mutation graphics can be generated. //TODO catch invalid files with correct ending
+function readRelationFiles() {
+	//check if the browser supports neccessary packages
+	if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
+		alert("The File APIs are not fully supported in this browser.");
+	}
+
+	//get the files from the input element
+	var files = document.getElementById("data").files;
+
+	//iterate over every file
+	for(i = 0; i < files.length; i++) {
+		var file = files[i];
+		var resultFile = null;
+		//check if the file has correct ending to be a relationship file
+		if(file.name.length > relationshipFileEnding.length && file.name.slice(-relationshipFileEnding.length) == relationshipFileEnding) {
+			//iterate over every file to find result file
+			for(j = 0; j < files.length; j++) {
+				var resFile = files[j]
+				//check if the filename of the file equals the filename of the relationship file and has the correct ending
+				if(resFile.name.length == file.name.length + resultFileEnding.length - relationshipFileEnding.length && file.name.slice(0, -relationshipFileEnding.length) == resFile.name.slice(0, -resultFileEnding.length)) {
+					resultFile = resFile;
+					break;
+				}
+			}
+
+			var treeId = "" + treeCounter;
+			//add a new tree to the tree data
+			trees[treeId] = {"relations": [], "originalRelations": [], "selectedEdges": [], "resultArray": [], "segmentAmount": 0, "tree": null, "root": null, "oldPos": [], "filename": file.name.slice(0, -relationshipFileEnding.length)};
+			treeCounter++;
+
+			var reader = new FileReader();
+
+			//add a function to the reader that triggers when a file is read
+			reader.onload = (function(treeId, resultFile) {
+				return function() {
+					//store the relationship data
+					try {
+						trees[treeId].relations = JSON.parse(this.result);
+						trees[treeId].originalRelations = JSON.parse(this.result);
+					//reading in the result file, also starts the generation of the tree visualisation
+					readResultFile(treeId, resultFile);
+					} catch(SyntaxError) {
+						alert(trees[treeId].filename + "" +  relationshipFileEnding + " is not a json-file!");
+					}
+				};
+			})(treeId, resultFile);
+
+			reader.readAsText(file);
+		}
+	};
+}
+
+//reades the given 'file' that should contain the mutations and frequencies of tree with given 'treeId'. Also starts the generation of the visualisation.
+function readResultFile(treeId, file) {
+	//check if the browser support neccessary packages
+	if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
+		alert("The File APIs are not fully supported in this browser.");
+	}
+
+	if (file != null) {
+		var reader = new FileReader();
+
+		//add a function to the reader that triggers when a file is read
+		reader.onload = function() {
+			var tree = trees[treeId];
+			try {
+				tree.resultArray = JSON.parse(this.result);
+
+				//going through every mutation to find the segment with the highest id
+				tree.resultArray.forEach(function(link) {
+					tree["segmentAmount"] = checkSegments(link.ssms, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.ssms_a, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.ssms_b, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.cnvs_a, tree["segmentAmount"]);
+					tree["segmentAmount"] = checkSegments(link.cnvs_b, tree["segmentAmount"]);
+				});
+				if(segmentAmount < tree["segmentAmount"]) {
+					//adding an option to the segment selection for each segment
+					var select = document.getElementById("segmentSelect");
+					for(var i = segmentAmount + 1; i <= tree["segmentAmount"]; i++) {
+						var option = document.createElement("option");
+						option.setAttribute("value", i - 1);
+						option.innerHTML = "segment " + (i - 1);
+						select.append(option);
+					}
+					segmentAmount = tree["segmentAmount"];
+				}
+			} catch (SyntaxError) {
+				alert(trees[treeId].filename + "" +  resultFileEnding + " is not a json-file! Tree was generated without mutations.");
+			}
+			
+			//generates the elements for the visualisation
+			afterRead(treeId, false);
+		}
+
+		reader.readAsText(file);
+	} else { //no result file selected
+		afterRead(treeId, false);
+	}
+}
+
+//checks mutArray for the highest id and updated segmentAmount if the segment has a higher id than segmentAmount
+function checkSegments(mutArray, segmentAmount) {
+	mutArray.forEach(function(mut) {
+		if(mut.seg_index > segmentAmount - 1) {
+			segmentAmount = mut.seg_index + 1;
+		}
+	});
+	return segmentAmount;
+}
+
+//generates the visualisation after the relations array has been read from a file. Set segSelect to true if the only thing changed is the selected segment
+function afterRead(treeId, segSelect) {
+	var treeData = arrayToJSON(trees[treeId].relations, trees[treeId].originalRelations);
+	//draw the tree
+	svg = d3.select("#treeG" + treeId);
+	drawTree(treeData, treeId, segSelect);
+	//generate the tables
+	if (trees[treeId].resultArray != null) {
+		drawMutationTable(trees[treeId].resultArray);
+		drawFreqTable(trees[treeId].resultArray);
+	}
+}
+
+//Generating a kinship tree in JSON-format from the input array
+function arrayToJSON(array, sourceArray){
+
+	//checking if array is not containing valid values for descendant <= predecessor
+	for(pre=0;pre<array.length;pre++){
+		for(desc=0;desc<=pre;desc++){
+			if(array[pre][desc]!=-1){
+				alert("Invalid array: " + pre + ", " + desc + " is not '-1'");
+				return [[],[]];
+			}
+		}
+	}
+
+	//contains the information for the main tree generation
+	var jsonTree = [];
+
+	//Adding every node
+	for(i=0; i<array.length; i++){
+		jsonTree.push({"id": i, "possibleChildren": new Array(array.length).fill(0), "uncertainParent": false});
+	}
+
+	//Setting up the relations by moving the nodes into the children array of their parent starting with the descendant with the highest index and checking for predecessors in a bottom up manner on the matrix. This means starting with the node that has the highest index and can be a parent.
+	for(desc=array.length-1;desc>0;desc--){
+		var preFound = false;
+		for(pre=desc-1;pre>=0;pre--){
+			if(array[pre][desc]==1){
+				if(!preFound){ //parent child relationship
+					//determine if the relation is really certain or if the relation has been selected by the user
+					if(sourceArray[pre][desc]==0) {
+						jsonTree[desc]["selected"] = true;
+					} else {
+						jsonTree[desc]["selected"] = false;
+					}
+
+					//adding children array if needed and not existing yet
+					if(typeof jsonTree[pre].children === 'undefined') {
+						jsonTree[pre]["children"] = [];
+					}
+					//moving the currently selected descendant into the children array of his predecessor
+					jsonTree[pre].children.unshift(jsonTree[desc]);
+					//removing the predecessor from the array
+					jsonTree = jsonTree.slice(0,desc).concat(jsonTree.slice(desc+1));
+				
+					preFound=true;
+				}
+			//setting the entry with same id than descendant in the possibleChildren array of the predecessor to 1 to represent that the descendant is a possible but not certain child of the predecessor
+			} else if(array[pre][desc]==0) {
+				jsonTree[pre].possibleChildren[desc]=1;
+			//catching invalid values in the array
+			} else if(array[pre][desc]!=-1) {
+				alert("Invalid value at " + pre + ", " + desc + " in the array!");
+				return [[],[]];
+			}
+		}
+
+	}
+
+	//removes all possible children, that won't be drawn in the topological tree
+	determinePossibleChildren (jsonTree[0], array);
+
+	return jsonTree[0];
+}
+
+//removes all possible children from each node of the given tree which are inferable by the children and possible children of the other nodes
+function determinePossibleChildren (jsonTree, array) {
+	jsonTree.children.forEach(function (child) {
+		dPC(child, array);
+	});
+}
+
+//removes the possible children of the lineage that are inferable using the relationship array array and recursively doing the same with all of the children of the lineage
+function dPC (lineage, array) {
+	for(i=0; i<lineage.possibleChildren.length; i++) {
+		if(lineage.possibleChildren[i] == 1) {
+			//removes all possible children from the lineage which are certain children of the possible child
+			for(j=i; j<array[i].length; j++) {
+				if(array[i][j]==1){
+					lineage.possibleChildren[j] = 0;
+				}
+			}
+		}
+	}
+	//applying the function to every child
+	if (lineage.children != null) {
+		lineage.children.forEach(function (child) {
+			dPC(child, array);
+		});
+	}
+}
+
+//------------------------------------------TREE GENERATION------------------------------------------------
+
 //creates the tree graphic
 function drawTree(treeData, treeId, segSelect) {
 	var svg = d3.select("#treeG" + treeId);
@@ -727,8 +583,7 @@ function drawTree(treeData, treeId, segSelect) {
 			.html(trees[treeId].filename);
 		var nWidth = name._groups[0][0].getBoundingClientRect().width;
 		name.style("left", margin.left + width/2 - nWidth/2 + "px");
-	//clearing the group of the tree if there is a svg working area for the tree already
-	} //else svg.selectAll("*").remove();
+	}
 
 	//creating an object that is responsible for placing the nodes to where they belong to
 	var tree = d3.tree().size([height, width]);
@@ -743,10 +598,13 @@ function drawTree(treeData, treeId, segSelect) {
 	updateTree(treeId, segSelect);
 }
 
-//TODO segment amount
+//removes the tree with given treeId and adjusts the segment amount
 function removeTree(treeId) {
+	//remove three from trees
 	delete trees[treeId];
+	//remove tree graphic
 	d3.select("#tree" + treeId).remove();
+	//adjusts the amount of segments
 	var oSA = segmentAmount;
 	segmentAmount = 0;
 	for (tId in trees) {
@@ -1570,4 +1428,151 @@ function insertMutations(mutationArray, table, typeName, mode, row) {
 			row.insertCell(-1).innerHTML = mut["start"] + " - " + mut["end"];
 		}
 	});
+}
+
+//redraws all the trees with the currently selected segment.
+function changeSegment() {
+	for (var treeId in trees) {
+		afterRead(treeId, true);
+	}
+}
+
+//generates pdf for all the trees
+function getPDFs() {
+	for (tId in trees) {
+		getPDF(tId);
+	}
+}
+
+//generates the pdf of the tree with given id out of the svg graphic in it's current state
+function getPDF(treeId) {
+	//pdf set up
+	var doc = new PDFDocument({
+		size: [width + margin.left + margin.right, height + margin.top + margin.bottom],
+		margins: {
+			top: margin.top,
+			bottom: margin.bottom,
+			left: margin.left,
+			right: margin.right
+		}
+	});
+	var stream = doc.pipe(blobStream());
+	
+	var g = document.getElementById("treeG" + treeId);
+	doc.translate(margin.right, margin.top);
+	doc.scale(pdfTreeScale);
+	doc.fontSize(pdfFontSize);
+
+	//add elements
+	var labels = [];
+	for (i=0; i<g.children.length; i++) {
+		var g2 = g.children[i];
+		for (j=0; j<g2.children.length; j++) {
+			var elem = g2.children[j];
+			addToPDF(doc, elem);
+			if(elem.nodeName == "g") {
+				var tf = elem.getAttribute("transform");
+				if (tf != null && tf.length >= 9 && tf.substring(0, 9) == "translate") {
+					tf = tf.substring(0, tf.length - 1);
+					tf = tf.split("(");
+					tf = tf[1].split(",");
+				}
+				for (k=0; k<elem.children.length; k++) {
+					addToPDF(doc, elem.children[k], tf);
+				}
+			}
+		}
+	}
+	
+	doc.end();
+	stream.on("finish", () => {
+		blob = stream.toBlob("application/pdf");
+		url = stream.toBlobURL("application/pdf");
+		window.open(url);
+		//saveAs(blob, "test.pdf");
+	});
+	//TODO request download
+}
+
+//Creates an element and adds it to doc. The element is based one elem with transformation tf in mind. This function is designed to work specifically with the graph svg and won't work for most other svgs depending on the elements used.
+function addToPDF(doc, elem, tf) {
+	//is this elem part of a mutation graphic
+	var mutGraph = true;
+	if (tf == null) {
+		tf = ["0", "0"];
+		mutGraph = false;
+	}
+	if(elem.nodeName == "path" && elem.getAttribute("stroke") != "white") {
+		var dsh = elem.getAttribute("stroke-dasharray");
+		//converting the color into an array of rgb values
+		var color = elem.getAttribute("stroke");
+		color = color.slice(4, -1);
+		color = color.split(", ");
+		if(dsh != null) {
+			dsh = dsh.split(", ");
+			doc.path(elem.getAttribute("d"))
+				.dash(parseInt(dsh[0]), {space: parseInt(dsh[1])})
+				.lineWidth(edgeWidth)
+				.stroke(color)
+				.undash();
+		} else {
+			doc.path(elem.getAttribute("d"))
+				.lineWidth(edgeWidth)
+				.stroke(color);
+		}
+	} else if(elem.nodeName == "circle") {
+		//parentElement coordinates have to be used because they store the actuall positions used by d3
+		doc.circle(elem.parentElement.__data__.x, elem.parentElement.__data__.y, parseInt(elem.getAttribute("r")))
+			.lineWidth(circleStrokeWidth)
+			.fillAndStroke("white", "black");
+		doc.stroke();
+	} else if(elem.nodeName == "text") {
+		var fill = elem.getAttribute("fill");
+		if (fill == null) {
+			fill = "black";
+		} else if (fill.length >= 3 && fill[0] == "r" && fill[1] == "g" && fill[2] == "b") {
+			fill = fill.substring(0, fill.length - 1);
+			fill = fill.split("(");
+			fill = fill[1].split(",");
+		}
+
+		var fontSize = pdfFontSize;
+		//dx, dy are used by the text elements on the nodes and edges except the mutation graphics
+		var x = parseInt(elem.getAttribute("dx"));
+		var y = parseInt(elem.getAttribute("dy"));
+		if (isNaN(x)) {
+			//For the mutation graphics normal x and y are used
+			x = parseInt(elem.getAttribute("x"));
+			y = parseInt(elem.getAttribute("y"));
+		}
+		if(elem.getAttribute("class") != "label" && !mutGraph) {
+			//space the node text elements to the right
+			x = x - pdfFontSize * 3 / 8 + pdfFontXOffset;
+			y = y - pdfFontSize * 3 / 8;
+
+
+			//adjust to the position of the containing group
+			x += elem.parentElement.__data__.x;
+			y += elem.parentElement.__data__.y;
+		} else if (mutGraph) {
+			//mutation graphic position needs to be adjusted depending on graphic size and transformation by the containing group
+			y = y - cnvRectHeigth * 1/2; //TODO not working for scaling text sizes (mutTextHeigth)
+			fontSize = elem.getAttribute("font-size");
+			x += parseInt(tf[0]);
+			y += parseInt(tf[1]);
+		}
+		doc.fontSize(fontSize)
+			.fillColor(fill)
+			.text(elem.innerHTML, x, y);
+	} else if(elem.nodeName == "rect") {
+		var fill = elem.style.fill;
+		if (fill.length >= 3 && fill[0] == "r" && fill[1] == "g" && fill[2] == "b") {
+			fill = fill.substring(0, fill.length - 1);
+			fill = fill.split("(");
+			fill = fill[1].split(", ");
+		}
+		doc.rect(elem.getAttribute("x") + parseInt(tf[0]), elem.getAttribute("y") + parseInt(tf[1]), elem.getAttribute("width"), elem.getAttribute("height"))
+			.fillAndStroke(fill, fill);
+		doc.stroke();
+	}
 }
