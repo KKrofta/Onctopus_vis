@@ -978,9 +978,11 @@ function pathstringTT(p, d) {
 //click handler for an uncertain edge that calculates the new relationship matrix if the edge would be selected, updates the selectedEdges array and updates the visualisation.
 function selectEdge(e) {
 	var p = e.parentElement;
-	var treeId = p.parentElement.id.slice(5);
+	var treeId = p.parentElement.id.slice(5); //TODO global
 	var tree = trees[treeId];
+	//changing the tree
 	activate_relation(treeId, [[p.getAttribute("predecessor"), p.getAttribute("descendant")]]);
+	//storing the selection
 	tree.selectedEdges.push([p.getAttribute("predecessor"), p.getAttribute("descendant")]);
 }
 
@@ -1006,7 +1008,7 @@ function activate_relation (treeId, rel) {
 function deselectEdge(e) {
 	var sEdge = e.parentElement;
 	if(sEdge.getAttribute("selected")) {
-		var treeId = sEdge.parentElement.id.slice(5);
+		var treeId = sEdge.parentElement.id.slice(5); //TODO global
 		var tree = trees[treeId];
 		var predId = sEdge.getAttribute("predecessor");
 		var descId = sEdge.getAttribute("descendant");
@@ -1014,6 +1016,7 @@ function deselectEdge(e) {
 		var imDe = [];
 		//this is needed for when a edge is added to selectedEdges before a tree changes so that the edge is no longer in that form in the tree and thus prevents deselection of this edge by implying it.
 		for (i = descId; i < tree.relations.length; i++) {
+			//edges that imply the deselected edge are those that start at the descendant node TODO but only in some cases, check if only those cases are done
 			if (tree.relations[descId][i] == 1) {
 				imDe.push(i);
 			}
