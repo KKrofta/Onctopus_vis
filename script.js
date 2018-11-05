@@ -33,6 +33,9 @@ var 	//file parameters
 	height = 500,
 	margin = {top: 30, right: 30, bottom: 30, left: 30},
 
+	//Beginnin of the id of the tree group without the treeId
+	treeGId = "treeG";
+
 	//parameters for the distance of the Mutation Graphic from the path
 	mutationGraphicXOffset = 3,
 	mutationGraphicYOffset = 3,
@@ -440,7 +443,7 @@ function checkSegments(mutArray, segmentAmount) {
 function afterRead(treeId, segSelect) {
 	var treeData = arrayToJSON(trees[treeId].relations, trees[treeId].originalRelations);
 	//draw the tree
-	svg = d3.select("#treeG" + treeId);
+	svg = d3.select("#" + treeGId + treeId);
 	drawTree(treeData, treeId, segSelect);
 	//generate the tables
 	if (trees[treeId].resultArray != null) {
@@ -543,7 +546,7 @@ function dPC (lineage, array) {
 
 //creates the tree graphic
 function drawTree(treeData, treeId, segSelect) {
-	var svg = d3.select("#treeG" + treeId);
+	var svg = d3.select("#" + treeGId + treeId);
 
 	//creating an svg working area with a group that will contain all of the svg objects if there is no working area for the tree already
 	if(svg.empty()) {
@@ -573,7 +576,7 @@ function drawTree(treeData, treeId, segSelect) {
 			.attr("width", width + margin.right + margin.left)
 			.attr("height", height + margin.top + margin.bottom + treeNameBottomShift)
 			.append("g")
-			.attr("id", "treeG" + treeId)
+			.attr("id", treeGId + treeId)
 			.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 		var name = d3.select("#tree" + treeId)
@@ -621,7 +624,7 @@ function removeTree(treeId) {
 
 //declaring the position of the children of the given root and appending graphics to them with the help of the given tree in the given svg working space.
 function updateTree(treeId, segSelect) {
-	var svg = d3.select("#treeG" + treeId);
+	var svg = d3.select("#" + treeGId + treeId);
 	var root = trees[treeId].root;
 	var tree = trees[treeId].tree;
 	
@@ -978,7 +981,7 @@ function pathstringTT(p, d) {
 //click handler for an uncertain edge that calculates the new relationship matrix if the edge would be selected, updates the selectedEdges array and updates the visualisation.
 function selectEdge(e) {
 	var p = e.parentElement;
-	var treeId = p.parentElement.id.slice(5); //TODO global
+	var treeId = p.parentElement.id.slice(treeGId.length);
 	var tree = trees[treeId];
 	//changing the tree
 	activate_relation(treeId, [[p.getAttribute("predecessor"), p.getAttribute("descendant")]]);
@@ -1008,26 +1011,29 @@ function activate_relation (treeId, rel) {
 function deselectEdge(e) {
 	var sEdge = e.parentElement;
 	if(sEdge.getAttribute("selected")) {
-		var treeId = sEdge.parentElement.id.slice(5); //TODO global
+		var treeId = sEdge.parentElement.id.slice(treeGId.length);
 		var tree = trees[treeId];
 		var predId = sEdge.getAttribute("predecessor");
 		var descId = sEdge.getAttribute("descendant");
 		//implied descendants through this relation
 		var imDe = [];
 		//this is needed for when a edge is added to selectedEdges before a tree changes so that the edge is no longer in that form in the tree and thus prevents deselection of this edge by implying it.
+		//edges that imply the deselected edge are those that start at the predecessor node and end in either the descendant node or one of the descendants' descentants
 		for (i = descId; i < tree.relations.length; i++) {
-			//edges that imply the deselected edge are those that start at the descendant node TODO but only in some cases, check if only those cases are done
 			if (tree.relations[descId][i] == 1) {
+				//storing the id's of the nodes descending from the descentant node
 				imDe.push(i);
 			}
 		}
 		for (i = 0; i < tree.selectedEdges.length; i++) {
 			var edge = tree.selectedEdges[i];
+			//removing the edge if it has the same predecessor as the deselected edge and a descendant that either is the same than the one in the deselected edge or a descendant of it
 			if(edge[0] == predId && (edge[1] == descId || imDe.includes(parseInt(edge[1])))) {
 				tree.selectedEdges.splice(tree.selectedEdges.indexOf(edge), 1);
 				i--;
 			}
 		}
+		//resetting the relations and reapplying all still remaining selected edges
 		tree.relations = tree.originalRelations.slice(0);
 		activate_relation(treeId, tree.selectedEdges);
 	}
@@ -1461,7 +1467,7 @@ function getPDF(treeId) {
 	});
 	var stream = doc.pipe(blobStream());
 	
-	var g = document.getElementById("treeG" + treeId);
+	var g = document.getElementById(treeGId + treeId);
 	doc.translate(margin.right, margin.top);
 	doc.scale(pdfTreeScale);
 	doc.fontSize(pdfFontSize);
@@ -1492,9 +1498,7 @@ function getPDF(treeId) {
 		blob = stream.toBlob("application/pdf");
 		url = stream.toBlobURL("application/pdf");
 		window.open(url);
-		//saveAs(blob, "test.pdf");
 	});
-	//TODO request download
 }
 
 //Creates an element and adds it to doc. The element is based one elem with transformation tf in mind. This function is designed to work specifically with the graph svg and won't work for most other svgs depending on the elements used.
