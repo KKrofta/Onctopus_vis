@@ -1145,7 +1145,82 @@ function checkForMultiAlleleCNV(cnvsA, cnvsB, mutations) {
 	}
 }
 
-//Generates the graphic for a cnv in mutArray on the edge link at position posShift using color for the rectangle color. It is expected that mutArray only contains one cnv.
+//Generates the graphic for the ssms on the edge link at position posShift when there are ssmCount ssms on both homologous segments, ssmACount ssms on segment A and ssmBCount ssms on segment B.
+function addMutationGraphicsForSSM(link, posShift, ssmCount, ssmACount, ssmBCount) {
+	var d = link.__data__;
+
+	//create group
+	var grp = document.createElementNS("http://www.w3.org/2000/svg", "g");
+	link.appendChild(grp);
+	grp.setAttribute("id", "mutationGraphicGroup" + d.id); //not unique!!!
+	grp.setAttribute("class", "mut");
+
+	//add text
+	var x = {"val": 0};
+	grp.append(generateTextElement(ssmCount, x, "black"));
+	x.val = grp.getBoundingClientRect().width;
+	grp.append(generateTextElement("|", x, "black"));
+	x.val = grp.getBoundingClientRect().width;
+	grp.append(generateTextElement(ssmACount, x, cnvRectColorA));
+	x.val = grp.getBoundingClientRect().width;
+	grp.append(generateTextElement("|", x, "black"));
+	x.val = grp.getBoundingClientRect().width;
+	grp.append(generateTextElement(ssmBCount, x, cnvRectColorB));
+
+	//move group to correct position
+	var indentLeft = 0;
+	if((d.x - d.parent.x) / (d.y - d.parent.y) < 0) {
+		//edges it from top right to bottom left and thus the element is drawn on the left
+		indentLeft = -grp.getBoundingClientRect().width;
+	}
+	var pos = mutGetPos(link, posShift, indentLeft);
+	var xpos = pos.x;
+	var ypos = pos.y;
+	grp.setAttribute("transform", "translate(" + xpos  + "," + (ypos) + ")");
+}
+
+//Generates a textnode containing text that is shifted to the right by x and uses textcolor color.
+function generateTextElement(content, x, color) {
+	var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+	text.setAttribute("x", x.val);
+	text.setAttribute("y", mutTextHeigth);
+	text.setAttribute("font-size", mutTextHeigth);
+	text.setAttribute("fill", color);
+
+	var textNode = document.createTextNode(content);
+	text.appendChild(textNode);
+
+	return text;
+}
+
+//returns the position of the graphic on the edge link at position posShift shifted to the left by indentLeft (this is necessary for element that are left of the edge where indentLeft should be the width of the element, otherwise it should be 0)
+function mutGetPos(link, posShift, indentLeft) {
+	var d = link.__data__;
+		//solution to desired heigth = 0,5 * (d.y + d.parent.y) + posShift * (mutGraphicSpacer + cnvRectHeigth) + cnvRectHeigth/2 = a * d.y + (1 - a) * d.parent.y
+		//0,5 * (d.y + d.parent.y) is the center between the two nodes
+		//posShift * (mutGraphicSpacer + cnvRectHeigth) is the heightmodification to space out multiple different mutations
+		//cnvRectHeigth/2 sets the center of the rectangle as reference point instead of its top
+		var a = 0.5 + (posShift * (mutGraphicSpacer + cnvRectHeigth) + cnvRectHeigth/2) / (d.y-d.parent.y);
+		var b = 1 - a;
+		var xa = a*d.x;
+		var xb = b*d.parent.x;
+		var ya = a*d.y;
+		var yb = b*d.parent.y;
+		var xpos = xa + xb + sign(d.x-d.parent.x)*mutationGraphicXOffset + indentLeft;
+		var ypos = ya + yb - cnvRectHeigth - mutationGraphicYOffset;
+		return {"x": xpos, "y":ypos};
+}
+
+//sign function that sets 0 as a positive number
+function sign(num) {
+	if(num < 0) {
+		return -1;
+	} else {
+		return 1;
+	}
+}
+
+//Generates the graphic for a cnv in mutArray on the edge link at position posShift using color for the rectangle color. secondaryColor is used for the second rectangle if there is a duplication or deletion of both alleles. It is expected that mutArray only contains one cnv.
 function addMutationGraphicsForCNV(link, posShift, mutArray, color, secondaryColor) {
 	var d = link.__data__;
 	mutArray.forEach(function(mut) {
@@ -1165,6 +1240,7 @@ function addMutationGraphicsForCNV(link, posShift, mutArray, color, secondaryCol
 		rect.setAttribute("x", 0);
 		rect.setAttribute("y", 0);
 
+		//adding second rectangle in case of deletion or duplication on both alleles
 		if(mut.change == -2 || mut.change == 2) {
 			var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 			grp.append(rect);
@@ -1207,80 +1283,6 @@ function addMutationGraphicsForCNV(link, posShift, mutArray, color, secondaryCol
 		var ypos = pos.y;
 		grp.setAttribute("transform", "translate(" + xpos + "," + (ypos) + ")");
 	});
-}
-
-//returns the position of the graphic on the edge link at position posShift shifted to the left by indentLeft (this is necessary for element that are left of the edge where indentLeft should be the width of the element, otherwise it should be 0)
-function mutGetPos(link, posShift, indentLeft) {
-	var d = link.__data__;
-		//solution to desired heigth = 0,5 * (d.y + d.parent.y) + posShift * (mutGraphicSpacer + cnvRectHeigth) + cnvRectHeigth/2 = a * d.y + (1 - a) * d.parent.y
-		//0,5 * (d.y + d.parent.y) is the center between the two nodes
-		//posShift * (mutGraphicSpacer + cnvRectHeigth) is the heightmodification to space out multiple different mutations
-		//cnvRectHeigth/2 sets the center of the rectangle as reference point instead of its top
-		var a = 0.5 + (posShift * (mutGraphicSpacer + cnvRectHeigth) + cnvRectHeigth/2) / (d.y-d.parent.y);
-		var b = 1 - a;
-		var xa = a*d.x;
-		var xb = b*d.parent.x;
-		var ya = a*d.y;
-		var yb = b*d.parent.y;
-		var xpos = xa + xb + sign(d.x-d.parent.x)*mutationGraphicXOffset + indentLeft;
-		var ypos = ya + yb - cnvRectHeigth - mutationGraphicYOffset;
-		return {"x": xpos, "y":ypos};
-}
-
-//sign function that sets 0 as a positive number
-function sign(num) {
-	if(num < 0) {
-		return -1;
-	} else {
-		return 1;
-	}
-}
-
-//Generates the graphic for the ssms on the edge link at position posShift when there are ssmCount ssms on both homologous segments, ssmACount ssms on segment A and ssmBCount ssms on segment B.
-function addMutationGraphicsForSSM(link, posShift, ssmCount, ssmACount, ssmBCount) {
-	var d = link.__data__;
-
-	//create group
-	var grp = document.createElementNS("http://www.w3.org/2000/svg", "g");
-	link.appendChild(grp);
-	grp.setAttribute("id", "mutationGraphicGroup" + d.id); //not unique!!!
-	grp.setAttribute("class", "mut");
-
-	//add text
-	var x = {"val": 0};
-	grp.append(generateTextElement(ssmCount, x, "black"));
-	x.val = grp.getBoundingClientRect().width;
-	grp.append(generateTextElement("|", x, "black"));
-	x.val = grp.getBoundingClientRect().width;
-	grp.append(generateTextElement(ssmACount, x, cnvRectColorA));
-	x.val = grp.getBoundingClientRect().width;
-	grp.append(generateTextElement("|", x, "black"));
-	x.val = grp.getBoundingClientRect().width;
-	grp.append(generateTextElement(ssmBCount, x, cnvRectColorB));
-
-	//move group to correct position
-	var indentLeft = 0;
-	if((d.x - d.parent.x) / (d.y - d.parent.y) < 0) {
-		indentLeft = -grp.getBoundingClientRect().width;
-	}
-	var pos = mutGetPos(link, posShift, indentLeft);
-	var xpos = pos.x;
-	var ypos = pos.y;
-	grp.setAttribute("transform", "translate(" + xpos  + "," + (ypos) + ")");
-}
-
-//Generates a textnode containing text that is shifted to the right by x and uses textcolor color.
-function generateTextElement(content, x, color) {
-	var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-	text.setAttribute("x", x.val);
-	text.setAttribute("y", mutTextHeigth);
-	text.setAttribute("font-size", mutTextHeigth);
-	text.setAttribute("fill", color);
-
-	var textNode = document.createTextNode(content);
-	text.appendChild(textNode);
-
-	return text;
 }
 
 //-------------------------------------Frequency Table--------------------------------------------------
