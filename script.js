@@ -1442,12 +1442,16 @@ function updateFreqTable(resultArray) {
 	});
 }
 
+//-----------------------------------------------change Segment------------------------------------------
+
 //redraws all the trees with the currently selected segment.
 function changeSegment() {
 	for (var treeId in trees) {
 		afterRead(treeId, true);
 	}
 }
+
+//---------------------------------------------------pdf generation-------------------------------------
 
 //generates pdf for all the trees
 function getPDFs() {
@@ -1456,7 +1460,7 @@ function getPDFs() {
 	}
 }
 
-//generates the pdf of the tree with given id out of the svg graphic in it's current state
+//generates the pdf of the tree with given id out of the svg graphic in it's current state. Be aware that the dom walker used is fitted to this exact graphic and not to general svgs. A change in the hirachy of elements might cause this function to stop working.
 function getPDF(treeId) {
 	//pdf set up
 	var doc = new PDFDocument({
@@ -1478,17 +1482,22 @@ function getPDF(treeId) {
 	//add elements
 	var labels = [];
 	for (i=0; i<g.children.length; i++) {
+		//container group of one graph elements (like a noder or an edge)
 		var g2 = g.children[i];
 		for (j=0; j<g2.children.length; j++) {
+			//path, circle or text element that can be drawn with the exception for mutations which are in groups
 			var elem = g2.children[j];
 			addToPDF(doc, elem);
 			if(elem.nodeName == "g") {
+				//handling mutations
+				//adding the transformation
 				var tf = elem.getAttribute("transform");
 				if (tf != null && tf.length >= 9 && tf.substring(0, 9) == "translate") {
 					tf = tf.substring(0, tf.length - 1);
 					tf = tf.split("(");
 					tf = tf[1].split(",");
 				}
+				//addign the graphic elements of the mutation graphic. Can be text or rectangles
 				for (k=0; k<elem.children.length; k++) {
 					addToPDF(doc, elem.children[k], tf);
 				}
@@ -1496,6 +1505,7 @@ function getPDF(treeId) {
 		}
 	}
 	
+	//open pdf
 	doc.end();
 	stream.on("finish", () => {
 		blob = stream.toBlob("application/pdf");
@@ -1504,7 +1514,7 @@ function getPDF(treeId) {
 	});
 }
 
-//Creates an element and adds it to doc. The element is based one elem with transformation tf in mind. This function is designed to work specifically with the graph svg and won't work for most other svgs depending on the elements used.
+//Creates an element and adds it to doc. The element is based one elem with transformation tf in mind. This function is designed to work specifically with the graph svg and won't work for most other svgs depending on the elements used. It might stop working if changes are made to the graph elements (if other types than circle, rectangle or text are used or if the data of the elements is changed).
 function addToPDF(doc, elem, tf) {
 	//is this elem part of a mutation graphic
 	var mutGraph = true;
@@ -1512,12 +1522,14 @@ function addToPDF(doc, elem, tf) {
 		tf = ["0", "0"];
 		mutGraph = false;
 	}
+	//handle paths
 	if(elem.nodeName == "path" && elem.getAttribute("stroke") != "white") {
-		var dsh = elem.getAttribute("stroke-dasharray");
 		//converting the color into an array of rgb values
 		var color = elem.getAttribute("stroke");
 		color = color.slice(4, -1);
 		color = color.split(", ");
+		//adding dashing to edges
+		var dsh = elem.getAttribute("stroke-dasharray");
 		if(dsh != null) {
 			dsh = dsh.split(", ");
 			doc.path(elem.getAttribute("d"))
@@ -1540,6 +1552,7 @@ function addToPDF(doc, elem, tf) {
 		var fill = elem.getAttribute("fill");
 		if (fill == null) {
 			fill = "black";
+		//rgb color
 		} else if (fill.length >= 3 && fill[0] == "r" && fill[1] == "g" && fill[2] == "b") {
 			fill = fill.substring(0, fill.length - 1);
 			fill = fill.split("(");
