@@ -446,7 +446,8 @@ function afterRead(treeId, segSelect) {
 	svg = d3.select("#" + treeGId + treeId);
 	drawTree(treeData, treeId, segSelect);
 	//generate the tables
-	if (trees[treeId].resultArray != null) {
+	if (trees[treeId].resultArray.length != 0) {
+		//REMARK: this might not be the intended behavior if the first table want to be kept instead of the newest one
 		drawMutationTable(trees[treeId].resultArray);
 		drawFreqTable(trees[treeId].resultArray);
 	}
@@ -1285,49 +1286,6 @@ function addMutationGraphicsForCNV(link, posShift, mutArray, color, secondaryCol
 	});
 }
 
-//-------------------------------------Frequency Table--------------------------------------------------
-
-//generates the frequency table into tableGroup based on resultArray
-function drawFreqTable(resultArray) {
-
-	var table = d3.select("#frequencyTable");
-
-	//creating an svg working area with a group that will contain all of the svg objects if there is no working area for the tree already
-	if(table.empty()) {
-		table = d3.select("#tableGroup").append("g")
-			.attr("id", "frequencyTableG")
-			.attr("width", width + margin.right + margin.left)
-			.attr("height", height + margin.top + margin.bottom)
-			.append("table")
-			.attr("id", "frequencyTable")
-			.attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-			.attr("border", "black")
-			.attr("border-collapse", "collapse");
-	//clearing the group of the tree if there is a svg working area for the tree already
-	} else table.selectAll("*").remove();
-
-	updateFreqTable(resultArray);
-}
-
-//update the frequency table based on resultArray
-function updateFreqTable(resultArray) {
-	table = document.getElementById("frequencyTable");
-
-	//add headers
-	var row = table.insertRow(0);
-	row.insertCell(0).innerHTML = "Lineage";
-	row.insertCell(1).innerHTML = "Frequency";
-	
-	//add values
-	var i = 0;
-	resultArray.forEach(function(d){
-		var row = table.insertRow(i+1);
-		row.insertCell(0).innerHTML = i;
-		row.insertCell(1).innerHTML = resultArray[i]["freq"];
-		i++;
-	});
-}
-
 //-------------------------------------Mutation Table---------------------------------------------------
 
 //generate the mutation table into tableGroup based on resultArray
@@ -1397,7 +1355,7 @@ function updateMutationTable(resultArray) {
 	});
 }
 
-//increases mutAmount by min(mutArrayLen, 1) if mutArrayLen is positiv
+//increases mutAmount mutArrayLen or 1 if mutArrayLen is 0 so that there is a row for the mutation name even if there are no mutations of this type
 function addMuts(mutAmount, mutArrayLen) {
 	if(mutArrayLen == 0) {
 		mutAmount += 1;
@@ -1438,6 +1396,49 @@ function insertMutations(mutationArray, table, typeName, mode, row) {
 		} else if (mode == 1) {
 			row.insertCell(-1).innerHTML = mut["start"] + " - " + mut["end"];
 		}
+	});
+}
+
+//-------------------------------------Frequency Table--------------------------------------------------
+
+//generates the frequency table into tableGroup based on resultArray
+function drawFreqTable(resultArray) {
+
+	var table = d3.select("#frequencyTable");
+
+	//creating an svg working area with a group that will contain all of the svg objects if there is no working area for the tree already
+	if(table.empty()) {
+		table = d3.select("#tableGroup").append("g")
+			.attr("id", "frequencyTableG")
+			.attr("width", width + margin.right + margin.left)
+			.attr("height", height + margin.top + margin.bottom)
+			.append("table")
+			.attr("id", "frequencyTable")
+			.attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+			.attr("border", "black")
+			.attr("border-collapse", "collapse");
+	//clearing the group of the tree if there is a svg working area for the tree already
+	} else table.selectAll("*").remove();
+
+	updateFreqTable(resultArray);
+}
+
+//update the frequency table based on resultArray
+function updateFreqTable(resultArray) {
+	table = document.getElementById("frequencyTable");
+
+	//add headers
+	var row = table.insertRow(0);
+	row.insertCell(0).innerHTML = "Lineage";
+	row.insertCell(1).innerHTML = "Frequency";
+	
+	//add values
+	var i = 0;
+	resultArray.forEach(function(d){
+		var row = table.insertRow(i+1);
+		row.insertCell(0).innerHTML = i;
+		row.insertCell(1).innerHTML = resultArray[i]["freq"];
+		i++;
 	});
 }
 
