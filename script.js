@@ -1491,6 +1491,7 @@ function getPDF(treeId) {
 	doc.translate(margin.right, margin.top);
 	doc.scale(pdfTreeScale);
 	doc.fontSize(pdfFontSize);
+	doc.info.Title = trees[treeId].filename;
 
 	//add elements
 	var labels = [];
