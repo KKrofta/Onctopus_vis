@@ -338,17 +338,20 @@ function readRelationFiles() {
 	var files = document.getElementById("data").files;
 
 	//iterate over every file
+	usedFiles = [];
 	for(i = 0; i < files.length; i++) {
 		var file = files[i];
 		var resultFile = null;
 		//check if the file has correct ending to be a relationship file
 		if(file.name.length > relationshipFileEnding.length && file.name.slice(-relationshipFileEnding.length) == relationshipFileEnding) {
+			usedFiles.push(i);
 			//iterate over every file to find result file
 			for(j = 0; j < files.length; j++) {
 				var resFile = files[j]
 				//check if the filename of the file equals the filename of the relationship file and has the correct ending
 				if(resFile.name.length == file.name.length + resultFileEnding.length - relationshipFileEnding.length && file.name.slice(0, -relationshipFileEnding.length) == resFile.name.slice(0, -resultFileEnding.length)) {
 					resultFile = resFile;
+					usedFiles.push(j);
 					break;
 				}
 			}
@@ -378,6 +381,16 @@ function readRelationFiles() {
 			reader.readAsText(file);
 		}
 	};
+	//throw a message for files that have not been used
+	var unusedFiles = "";
+	for(i = 0; i < files.length; i++) {
+		if (!usedFiles.includes(i)) {
+			unusedFiles = unusedFiles + files[i].name + "\n";
+		}
+	}
+	if (unusedFiles != "") {
+		alert("The following files have been ignored: \n" + unusedFiles);
+	}
 }
 
 //reades the given 'file' that should contain the mutations and frequencies of tree with given 'treeId'. Also starts the generation of the visualisation.
